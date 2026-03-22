@@ -70,7 +70,6 @@ http://localhost:8080 접속 후:
 ```bash
 # 링크 분석
 python main.py parse "대화내보내기.txt"
-python main.py parse "chat.txt" --max-links 10   # 최대 10개만
 python main.py parse "chat.txt" --force           # 기존 링크 재분석
 
 # 웹 UI
