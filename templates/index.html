@@ -10,10 +10,16 @@
     <div class="container">
         <header>
             <h1>카톡 링크 분석기</h1>
-            <form class="search-bar" method="get" action="/">
-                <input type="text" name="q" value="{{ search_query }}" placeholder="검색어 입력...">
-                <button type="submit">검색</button>
-            </form>
+            <div class="header-actions">
+                <form class="search-bar" method="get" action="/">
+                    <input type="text" name="q" value="{{ search_query }}" placeholder="검색어 입력...">
+                    <button type="submit">검색</button>
+                </form>
+                <div class="export-btns">
+                    <a href="/api/export/json" class="btn-export">JSON</a>
+                    <a href="/api/export/csv" class="btn-export">CSV</a>
+                </div>
+            </div>
         </header>
 
         <div class="layout">
@@ -22,20 +28,34 @@
                 <ul id="category-list">
                     <li><a href="/" class="{{ 'active' if not current_category else '' }}">전체</a></li>
                 </ul>
+
+                <h3 style="margin-top: 20px;">날짜 필터</h3>
+                <form class="date-filter" method="get" action="/">
+                    {% if current_category %}
+                    <input type="hidden" name="category" value="{{ current_category }}">
+                    {% endif %}
+                    {% if search_query %}
+                    <input type="hidden" name="q" value="{{ search_query }}">
+                    {% endif %}
+                    <input type="text" name="date_from" value="{{ date_from }}" placeholder="시작 (2025년 4월)">
+                    <input type="text" name="date_to" value="{{ date_to }}" placeholder="끝 (2025년 12월)">
+                    <button type="submit">적용</button>
+                </form>
             </aside>
 
             <main class="content">
                 {% if links %}
                 <p class="count">{{ links|length }}개 링크</p>
                 {% for link in links %}
-                <div class="card">
+                <div class="card{% if link.pinned %} pinned{% endif %}" data-id="{{ link.id }}">
                     <div class="card-header">
                         <a href="{{ link.url }}" target="_blank" class="card-title">
                             {{ link.title or link.url }}
                         </a>
-                        {% if link.category %}
-                        <span class="badge">{{ link.category }}</span>
-                        {% endif %}
+                        <div class="card-header-actions">
+                            <span class="badge editable" onclick="editCategory({{ link.id }}, this)" title="클릭하여 카테고리 수정">{{ link.category or '미분류' }}</span>
+                            <button class="btn-pin{% if link.pinned %} active{% endif %}" onclick="togglePin({{ link.id }}, this)" title="즐겨찾기">&#9733;</button>
+                        </div>
                     </div>
                     {% if link.summary %}
                     <p class="card-summary">{{ link.summary }}</p>
@@ -46,9 +66,12 @@
                             <a href="/?q={{ tag }}" class="tag">#{{ tag }}</a>
                             {% endfor %}
                         </div>
-                        {% if link.source_date %}
-                        <span class="date">{{ link.source_date }}</span>
-                        {% endif %}
+                        <div class="card-actions">
+                            {% if link.source_date %}
+                            <span class="date">{{ link.source_date }}</span>
+                            {% endif %}
+                            <button class="btn-delete" onclick="deleteLink({{ link.id }}, this)" title="삭제">&#10005;</button>
+                        </div>
                     </div>
                 </div>
                 {% endfor %}
@@ -59,6 +82,49 @@
         </div>
     </div>
     <script>
+        function deleteLink(id, btn) {
+            if (!confirm('이 링크를 삭제할까요?')) return;
+            fetch('/api/links/' + id, { method: 'DELETE' })
+                .then(function(r) {
+                    if (r.ok) {
+                        btn.closest('.card').remove();
+                        var countEl = document.querySelector('.count');
+                        if (countEl) {
+                            var n = document.querySelectorAll('.card').length;
+                            countEl.textContent = n + '개 링크';
+                        }
+                    }
+                });
+        }
+
+        function togglePin(id, btn) {
+            fetch('/api/links/' + id + '/pin', { method: 'POST' })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (data.ok) {
+                        btn.classList.toggle('active', data.pinned);
+                        btn.closest('.card').classList.toggle('pinned', data.pinned);
+                    }
+                });
+        }
+
+        function editCategory(id, el) {
+            var current = el.textContent.trim();
+            var newCat = prompt('새 카테고리:', current === '미분류' ? '' : current);
+            if (newCat === null || newCat.trim() === '') return;
+            fetch('/api/links/' + id + '/category', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ category: newCat.trim() })
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.ok) {
+                    el.textContent = data.category;
+                }
+            });
+        }
+
         (function() {
             var currentParams = new URLSearchParams(window.location.search);
             var currentCat = currentParams.get('category') || '';
@@ -70,7 +136,7 @@
                         var li = document.createElement('li');
                         var a = document.createElement('a');
                         a.href = '/?category=' + encodeURIComponent(cat.name);
-                        a.textContent = cat.name;
+                        a.textContent = cat.name + ' (' + cat.count + ')';
                         if (cat.name === currentCat) a.className = 'active';
                         li.appendChild(a);
                         list.appendChild(li);

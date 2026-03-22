@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import re
 import subprocess
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -14,6 +15,34 @@ CODE_BLOCK_PATTERN = re.compile(r"```(?:json)?\s*\n?(.*?)\n?```", re.DOTALL)
 JSON_OBJECT_PATTERN = re.compile(r"\{[^{}]*(?:\[[^\[\]]*\][^{}]*)?\}", re.DOTALL)
 
 
+def _detect_backend() -> str:
+    """사용 가능한 AI 백엔드 자동 감지. 환경변수 ANALYZER_BACKEND으로 강제 지정 가능."""
+    forced = os.environ.get("ANALYZER_BACKEND", "").lower()
+    if forced in ("claude", "openai"):
+        return forced
+
+    # Claude CLI 우선
+    try:
+        r = subprocess.run(
+            ["claude", "--version"],
+            capture_output=True, text=True, timeout=10, shell=True,
+        )
+        if r.returncode == 0:
+            return "claude"
+    except Exception:
+        pass
+
+    # OpenAI API key 확인
+    if os.environ.get("OPENAI_API_KEY"):
+        return "openai"
+
+    raise RuntimeError(
+        "AI 백엔드를 찾을 수 없습니다.\n"
+        "- Claude Code CLI 설치: https://docs.anthropic.com/en/docs/claude-code\n"
+        "- 또는 OPENAI_API_KEY 환경변수 설정"
+    )
+
+
 def build_prompt(content: str, existing_categories: list[str] | None = None) -> str:
     cats = existing_categories or ["기술", "뉴스", "쇼핑", "참고자료", "엔터테인먼트"]
     cat_list = ", ".join(cats)
@@ -26,7 +55,7 @@ def build_prompt(content: str, existing_categories: list[str] | None = None) -> 
 {content}"""
 
 
-def parse_claude_response(response: str) -> AnalysisResult | None:
+def parse_response(response: str) -> AnalysisResult | None:
     json_str = None
 
     code_match = CODE_BLOCK_PATTERN.search(response)
@@ -48,28 +77,73 @@ def parse_claude_response(response: str) -> AnalysisResult | None:
         return None
 
 
+def _call_claude(prompt: str) -> str | None:
+    try:
+        result = subprocess.run(
+            ["claude", "-p"],
+            input=prompt,
+            capture_output=True,
+            text=True,
+            timeout=120,
+            shell=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+        if result.returncode == 0:
+            return result.stdout
+        logger.warning("claude -p 실패: %s", result.stderr[:200])
+    except subprocess.TimeoutExpired:
+        logger.warning("claude -p 타임아웃")
+    except Exception as e:
+        logger.warning("claude -p 에러: %s", e)
+    return None
+
+
+def _call_openai(prompt: str) -> str | None:
+    try:
+        from openai import OpenAI
+    except ImportError:
+        logger.error("openai 패키지가 필요합니다: pip install openai")
+        return None
+
+    try:
+        client = OpenAI()
+        model = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
+        response = client.chat.completions.create(
+            model=model,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.3,
+            max_tokens=500,
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        logger.warning("OpenAI API 에러: %s", e)
+        return None
+
+
+_backend = None
+
+
+def _get_backend():
+    global _backend
+    if _backend is None:
+        _backend = _detect_backend()
+        logger.info("AI 백엔드: %s", _backend)
+    return _backend
+
+
 def analyze_content(content: str, existing_categories: list[str] | None = None) -> AnalysisResult | None:
     prompt = build_prompt(content, existing_categories)
+    backend = _get_backend()
+    call_fn = _call_claude if backend == "claude" else _call_openai
 
     for attempt in range(2):
-        try:
-            result = subprocess.run(
-                ["claude", "-p", prompt],
-                capture_output=True,
-                text=True,
-                timeout=120,
-            )
-            if result.returncode == 0:
-                parsed = parse_claude_response(result.stdout)
-                if parsed:
-                    return parsed
-                logger.warning("JSON 파싱 실패 (시도 %d): %s", attempt + 1, result.stdout[:200])
-            else:
-                logger.warning("claude -p 실패 (시도 %d): %s", attempt + 1, result.stderr[:200])
-        except subprocess.TimeoutExpired:
-            logger.warning("claude -p 타임아웃 (시도 %d)", attempt + 1)
-        except Exception as e:
-            logger.warning("claude -p 에러 (시도 %d): %s", attempt + 1, e)
+        response = call_fn(prompt)
+        if response:
+            parsed = parse_response(response)
+            if parsed:
+                return parsed
+            logger.warning("JSON 파싱 실패 (시도 %d): %s", attempt + 1, (response or "")[:200])
 
     return None
 

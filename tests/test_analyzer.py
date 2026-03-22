@@ -1,12 +1,12 @@
 import json
 import pytest
-from analyzer import parse_claude_response, build_prompt, analyze_content
+from analyzer import parse_response, build_prompt, analyze_content
 from models import AnalysisResult
 
 
 def test_parse_valid_json():
     response = '{"summary": "요약입니다", "category": "기술", "tags": ["python", "AI"]}'
-    result = parse_claude_response(response)
+    result = parse_response(response)
     assert isinstance(result, AnalysisResult)
     assert result.summary == "요약입니다"
     assert result.category == "기술"
@@ -15,25 +15,25 @@ def test_parse_valid_json():
 
 def test_parse_json_in_code_block():
     response = '```json\n{"summary": "요약", "category": "뉴스", "tags": ["test"]}\n```'
-    result = parse_claude_response(response)
+    result = parse_response(response)
     assert result.summary == "요약"
 
 
 def test_parse_json_with_extra_text():
     response = '여기 결과입니다:\n{"summary": "요약", "category": "기술", "tags": ["a"]}'
-    result = parse_claude_response(response)
+    result = parse_response(response)
     assert result.summary == "요약"
 
 
 def test_parse_invalid_json():
     response = "이건 JSON이 아닙니다"
-    result = parse_claude_response(response)
+    result = parse_response(response)
     assert result is None
 
 
 def test_parse_missing_fields():
     response = '{"summary": "요약"}'
-    result = parse_claude_response(response)
+    result = parse_response(response)
     assert result is None
 
 

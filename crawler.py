@@ -32,9 +32,9 @@ def _crawl_with_requests(url: str) -> dict | None:
         resp = requests.get(url, headers={"User-Agent": DEFAULT_UA}, timeout=REQUEST_TIMEOUT)
         resp.raise_for_status()
         result = extract_text_content(resp.text)
-        if result["text"].strip():
+        if len(result["text"].strip()) > 50:
             return result
-        return None  # 빈 콘텐츠 → playwright fallback
+        return None  # 콘텐츠 부족 → playwright fallback
     except requests.exceptions.HTTPError as e:
         if e.response is not None and e.response.status_code in (403, 404, 410):
             logger.warning("HTTP %d for %s, skipping", e.response.status_code, url)

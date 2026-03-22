@@ -44,9 +44,27 @@ def parse_katalk_export(text: str) -> list[dict]:
     return results
 
 
+SKIP_DOMAINS = {
+    "127.0.0.1", "localhost",
+    "docs.google.com", "drive.google.com",
+    "mail.google.com", "calendar.google.com",
+}
+
+SKIP_PREFIXES = (
+    "https://l.threads.com/",  # 리다이렉트 URL
+)
+
+
 def _is_valid_url(url: str) -> bool:
     try:
         parsed = urlparse(url)
-        return bool(parsed.scheme and parsed.netloc)
+        if not (parsed.scheme and parsed.netloc):
+            return False
+        host = parsed.netloc.split(":")[0]
+        if host in SKIP_DOMAINS:
+            return False
+        if any(url.startswith(p) for p in SKIP_PREFIXES):
+            return False
+        return True
     except Exception:
         return False

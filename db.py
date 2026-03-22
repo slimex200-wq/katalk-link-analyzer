@@ -27,15 +27,24 @@ class Database:
                 tags TEXT DEFAULT '[]',
                 source_date TEXT,
                 created_at TEXT,
-                raw_content TEXT
+                raw_content TEXT,
+                pinned INTEGER DEFAULT 0
             );
         """)
+        self._migrate()
         for cat in DEFAULT_CATEGORIES:
             self.conn.execute(
                 "INSERT OR IGNORE INTO categories (name, is_default) VALUES (?, 1)",
                 (cat,),
             )
         self.conn.commit()
+
+    def _migrate(self):
+        cursor = self.conn.execute("PRAGMA table_info(links)")
+        columns = [row[1] for row in cursor.fetchall()]
+        if "pinned" not in columns:
+            self.conn.execute("ALTER TABLE links ADD COLUMN pinned INTEGER DEFAULT 0")
+            self.conn.commit()
 
     def execute(self, sql, params=()):
         return self.conn.execute(sql, params)
@@ -74,7 +83,7 @@ class Database:
             return result
         return None
 
-    def get_links(self, category=None, search=None):
+    def get_links(self, category=None, search=None, date_from=None, date_to=None, pinned_only=False):
         query = "SELECT * FROM links"
         params = []
         conditions = []
@@ -84,9 +93,17 @@ class Database:
         if search:
             conditions.append("(title LIKE ? OR summary LIKE ? OR tags LIKE ?)")
             params.extend([f"%{search}%"] * 3)
+        if date_from:
+            conditions.append("source_date >= ?")
+            params.append(date_from)
+        if date_to:
+            conditions.append("source_date <= ?")
+            params.append(date_to)
+        if pinned_only:
+            conditions.append("pinned = 1")
         if conditions:
             query += " WHERE " + " AND ".join(conditions)
-        query += " ORDER BY created_at DESC"
+        query += " ORDER BY pinned DESC, created_at DESC"
         rows = self.conn.execute(query, params).fetchall()
         results = []
         for row in rows:
@@ -103,15 +120,36 @@ class Database:
         return [dict(r) for r in rows]
 
     def get_used_categories(self):
-        """링크가 실제로 존재하는 카테고리만 반환"""
+        """링크가 실제로 존재하는 카테고리와 개수 반환"""
         rows = self.conn.execute(
-            "SELECT DISTINCT category FROM links WHERE category IS NOT NULL ORDER BY category"
+            "SELECT category, COUNT(*) as count FROM links WHERE category IS NOT NULL GROUP BY category ORDER BY category"
         ).fetchall()
-        return [{"name": r["category"]} for r in rows]
+        return [{"name": r["category"], "count": r["count"]} for r in rows]
+
+    def update_category(self, link_id: int, category: str) -> bool:
+        cursor = self.conn.execute("UPDATE links SET category = ? WHERE id = ?", (category, link_id))
+        if cursor.rowcount > 0:
+            self.ensure_category(category)
+        self.conn.commit()
+        return cursor.rowcount > 0
+
+    def toggle_pin(self, link_id: int) -> dict:
+        row = self.conn.execute("SELECT pinned FROM links WHERE id = ?", (link_id,)).fetchone()
+        if not row:
+            return {"ok": False}
+        new_val = 0 if row["pinned"] else 1
+        self.conn.execute("UPDATE links SET pinned = ? WHERE id = ?", (new_val, link_id))
+        self.conn.commit()
+        return {"ok": True, "pinned": bool(new_val)}
 
     def ensure_category(self, name):
         self.conn.execute("INSERT OR IGNORE INTO categories (name, is_default) VALUES (?, 0)", (name,))
         self.conn.commit()
+
+    def delete_link(self, link_id: int) -> bool:
+        cursor = self.conn.execute("DELETE FROM links WHERE id = ?", (link_id,))
+        self.conn.commit()
+        return cursor.rowcount > 0
 
     def url_exists(self, url):
         return self.conn.execute("SELECT 1 FROM links WHERE url = ?", (url,)).fetchone() is not None
