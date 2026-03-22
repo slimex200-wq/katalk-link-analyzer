@@ -9,6 +9,9 @@ PC_DATE_PATTERN = re.compile(r'(\d{4}년 \d{1,2}월 \d{1,2}일 [오전후]+ \d{1
 # 모바일 형식: "[나] [오후 4:27] ..."
 MOBILE_DATE_PATTERN = re.compile(r'\[.*?\]\s*\[([오전후]+ \d{1,2}:\d{2})\]')
 
+# 날짜 구분선: "--------------- 2025년 3월 27일 목요일 ---------------"
+DATE_SEPARATOR_PATTERN = re.compile(r'-+\s*(\d{4}년 \d{1,2}월 \d{1,2}일)\s*\S+\s*-+')
+
 
 def parse_katalk_export(text: str) -> list[dict]:
     if not text.strip():
@@ -21,6 +24,11 @@ def parse_katalk_export(text: str) -> list[dict]:
     for line in text.splitlines():
         line = line.strip()
         if not line:
+            continue
+
+        sep_match = DATE_SEPARATOR_PATTERN.search(line)
+        if sep_match:
+            current_date = sep_match.group(1)
             continue
 
         pc_match = PC_DATE_PATTERN.search(line)

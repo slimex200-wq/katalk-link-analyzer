@@ -15,12 +15,27 @@
                     <input type="text" name="q" value="{{ search_query }}" placeholder="검색어 입력...">
                     <button type="submit">검색</button>
                 </form>
+                <button class="btn-upload" onclick="document.getElementById('file-input').click()">파일 업로드</button>
+                <input type="file" id="file-input" accept=".txt" style="display:none" onchange="uploadFile(this)">
                 <div class="export-btns">
                     <a href="/api/export/json" class="btn-export">JSON</a>
                     <a href="/api/export/csv" class="btn-export">CSV</a>
                 </div>
             </div>
         </header>
+
+        <!-- 업로드 진행 상태 -->
+        <div id="upload-bar" class="upload-bar" style="display:none;">
+            <div class="upload-progress">
+                <div class="upload-progress-fill" id="upload-fill"></div>
+            </div>
+            <span id="upload-msg">준비 중...</span>
+        </div>
+
+        <!-- 드래그앤드롭 영역 -->
+        <div id="drop-zone" class="drop-zone" style="display:none;">
+            <p>카카오톡 대화 내보내기 파일(.txt)을 여기에 놓으세요</p>
+        </div>
 
         <div class="layout">
             <aside class="sidebar">
@@ -76,12 +91,91 @@
                 </div>
                 {% endfor %}
                 {% else %}
-                <p class="empty">저장된 링크가 없습니다.</p>
+                <div class="empty-state">
+                    <p class="empty-title">저장된 링크가 없습니다</p>
+                    <p class="empty-desc">카카오톡 대화 내보내기 파일(.txt)을 업로드하세요</p>
+                    <button class="btn-upload-large" onclick="document.getElementById('file-input').click()">파일 선택</button>
+                    <p class="empty-hint">또는 이 화면에 파일을 드래그앤드롭</p>
+                </div>
                 {% endif %}
             </main>
         </div>
     </div>
     <script>
+        // 파일 업로드
+        function uploadFile(input) {
+            var file = input.files[0];
+            if (!file) return;
+            var formData = new FormData();
+            formData.append('file', file);
+
+            var bar = document.getElementById('upload-bar');
+            var msg = document.getElementById('upload-msg');
+            bar.style.display = 'flex';
+            msg.textContent = '업로드 중...';
+
+            fetch('/api/upload', { method: 'POST', body: formData })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (data.error) {
+                        msg.textContent = data.error;
+                        setTimeout(function() { bar.style.display = 'none'; }, 3000);
+                        return;
+                    }
+                    msg.textContent = data.new_links + '개 새 링크 분석 시작...';
+                    if (data.new_links > 0) {
+                        pollStatus();
+                    } else {
+                        msg.textContent = '새로운 링크가 없습니다.';
+                        setTimeout(function() { bar.style.display = 'none'; }, 2000);
+                    }
+                })
+                .catch(function(e) {
+                    msg.textContent = '업로드 실패: ' + e.message;
+                });
+            input.value = '';
+        }
+
+        function pollStatus() {
+            var fill = document.getElementById('upload-fill');
+            var msg = document.getElementById('upload-msg');
+            var interval = setInterval(function() {
+                fetch('/api/upload/status')
+                    .then(function(r) { return r.json(); })
+                    .then(function(s) {
+                        var pct = s.total > 0 ? Math.round(s.done / s.total * 100) : 0;
+                        fill.style.width = pct + '%';
+                        msg.textContent = s.message;
+                        if (!s.running) {
+                            clearInterval(interval);
+                            setTimeout(function() { location.reload(); }, 1500);
+                        }
+                    });
+            }, 2000);
+        }
+
+        // 드래그앤드롭
+        var dropZone = document.getElementById('drop-zone');
+        document.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            dropZone.style.display = 'flex';
+        });
+        document.addEventListener('dragleave', function(e) {
+            if (e.relatedTarget === null) dropZone.style.display = 'none';
+        });
+        dropZone.addEventListener('drop', function(e) {
+            e.preventDefault();
+            dropZone.style.display = 'none';
+            var file = e.dataTransfer.files[0];
+            if (file) {
+                var input = document.getElementById('file-input');
+                var dt = new DataTransfer();
+                dt.items.add(file);
+                input.files = dt.files;
+                uploadFile(input);
+            }
+        });
+
         function deleteLink(id, btn) {
             if (!confirm('이 링크를 삭제할까요?')) return;
             fetch('/api/links/' + id, { method: 'DELETE' })
