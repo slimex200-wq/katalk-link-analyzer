@@ -110,6 +110,29 @@ python main.py list --search AI
 - **웹**: FastAPI + Jinja2
 - **CLI**: Click
 
+## 업데이트
+
+### v2 (2026-03-22)
+- Codex CLI 지원 추가 (Claude / Codex / OpenAI 세 가지 백엔드)
+- 웹 UI 파일 업로드 + 드래그앤드롭 (CLI 없이 사용 가능)
+- 즐겨찾기(핀) 기능 - 중요 링크 상단 고정
+- 카테고리 클릭 수정 + 개수 표시
+- 날짜 범위 필터
+- JSON/CSV 내보내기
+- 링크 삭제
+- 모바일 반응형 UI
+- URL 필터링 (localhost, google docs 등 자동 제외)
+- Playwright fallback 개선 (짧은 콘텐츠 감지)
+- 다중 인코딩 자동 감지 (UTF-8, CP949, EUC-KR, UTF-16)
+
+### v1 (2026-03-22)
+- 카톡 대화 내보내기 파서 (PC/모바일 형식)
+- 웹 크롤링 (requests + Playwright)
+- Claude CLI AI 분석
+- SQLite 저장
+- FastAPI 다크 테마 대시보드
+- 카테고리 필터 + 검색
+
 ## 라이선스
 
 MIT
