@@ -141,4 +141,4 @@ python main.py list --search AI
 
 ## 라이선스
 
-MIT
+이 프로젝트는 [MIT License](LICENSE)로 배포됩니다. 자유롭게 사용, 수정, 배포할 수 있습니다.
