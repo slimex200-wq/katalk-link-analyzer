@@ -11,17 +11,21 @@
 - 웹 크롤링 (requests + Playwright fallback)
 - AI 요약 + 카테고리/태그 자동 분류
 - 다크 테마 웹 대시보드
+- 웹에서 파일 업로드 (드래그앤드롭 지원)
 - 즐겨찾기(핀), 카테고리 수정, 검색, 날짜 필터
 - JSON/CSV 내보내기
 
 ## AI 백엔드
 
-두 가지 중 하나를 사용합니다 (자동 감지):
+세 가지 중 하나를 사용합니다 (자동 감지, 위에서부터 우선):
 
-| 백엔드 | 비용 | 설정 |
-|--------|------|------|
-| **Claude Code CLI** | 무료 (Pro/Max 구독 시) | [설치](https://docs.anthropic.com/en/docs/claude-code) 후 바로 사용 |
-| **OpenAI API** | API 사용량만큼 | `.env`에 `OPENAI_API_KEY` 설정 |
+| 백엔드 | 추가 비용 | 필요 구독 | 설치 |
+|--------|-----------|-----------|------|
+| **Claude Code CLI** | 무료 | Claude Pro/Max | `npm install -g @anthropic-ai/claude-code` |
+| **Codex CLI** | 무료 | ChatGPT Plus/Pro | `npm install -g @openai/codex` |
+| **OpenAI API** | 사용량 과금 | 없음 (API 키만) | `.env`에 `OPENAI_API_KEY` 설정 |
+
+> Claude Code 또는 Codex CLI가 설치되어 있으면 추가 비용 없이 사용 가능합니다.
 
 ## 설치
 
@@ -41,40 +45,39 @@ pip install -r requirements.txt
 playwright install chromium
 ```
 
-### OpenAI 사용 시
-
-```bash
-cp .env.example .env
-# .env 파일에 OPENAI_API_KEY 설정
-```
-
 ## 사용법
 
-### 1. 카톡 대화 내보내기
-
-- **PC**: 채팅방 → ☰ → 대화 내보내기 → .txt 저장
-- **모바일**: 채팅방 → 설정 → 대화 내보내기
-
-### 2. 링크 분석
+### 웹 대시보드 (권장)
 
 ```bash
-python main.py parse "대화내보내기.txt"
+python main.py serve
+```
 
-# 옵션
+http://localhost:8080 접속 후:
+1. **파일 업로드** 버튼 클릭 또는 파일을 화면에 **드래그앤드롭**
+2. 카카오톡 대화 내보내기 .txt 파일 선택
+3. 자동으로 크롤링 + AI 분석 시작 (진행률 표시)
+4. 완료 후 자동 새로고침
+
+### 카카오톡 대화 내보내기 방법
+
+**PC**: 채팅방 > 상단 메뉴(☰) > 대화 내보내기 > .txt 저장
+
+**모바일**: 채팅방 > 설정(톱니바퀴) > 대화 내보내기
+
+### CLI 사용
+
+```bash
+# 링크 분석
+python main.py parse "대화내보내기.txt"
 python main.py parse "chat.txt" --max-links 10   # 최대 10개만
 python main.py parse "chat.txt" --force           # 기존 링크 재분석
-```
 
-### 3. 웹 대시보드
-
-```bash
+# 웹 UI
 python main.py serve              # http://localhost:8080
 python main.py serve --port 3000  # 포트 변경
-```
 
-### 4. 터미널에서 보기
-
-```bash
+# 터미널에서 보기
 python main.py list
 python main.py list --category 기술
 python main.py list --search AI
@@ -82,10 +85,11 @@ python main.py list --search AI
 
 ## 웹 대시보드 기능
 
+- 파일 업로드 + 드래그앤드롭
 - 카테고리 필터 (개수 표시)
 - 검색 (제목/요약/태그)
 - 날짜 범위 필터
-- 즐겨찾기 (★) 핀 고정
+- 즐겨찾기 핀 고정
 - 카테고리 클릭 수정
 - 링크 삭제
 - JSON/CSV 내보내기
@@ -94,15 +98,15 @@ python main.py list --search AI
 
 | 변수 | 설명 | 기본값 |
 |------|------|--------|
-| `ANALYZER_BACKEND` | AI 백엔드 강제 지정 (`claude` / `openai`) | 자동 감지 |
-| `OPENAI_API_KEY` | OpenAI API 키 | - |
+| `ANALYZER_BACKEND` | AI 백엔드 강제 지정 (`claude` / `codex` / `openai`) | 자동 감지 |
+| `OPENAI_API_KEY` | OpenAI API 키 (API 사용 시에만) | - |
 | `OPENAI_MODEL` | OpenAI 모델 | `gpt-4o-mini` |
 
 ## 기술 스택
 
 - **파서**: Python regex (PC/모바일 카톡 형식)
 - **크롤러**: requests + BeautifulSoup, Playwright fallback
-- **AI**: Claude Code CLI / OpenAI API
+- **AI**: Claude Code CLI / Codex CLI / OpenAI API
 - **DB**: SQLite
 - **웹**: FastAPI + Jinja2
 - **CLI**: Click

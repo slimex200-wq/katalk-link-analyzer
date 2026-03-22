@@ -3,6 +3,7 @@ import logging
 import os
 import re
 import subprocess
+import tempfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from models import AnalysisResult
@@ -18,7 +19,7 @@ JSON_OBJECT_PATTERN = re.compile(r"\{[^{}]*(?:\[[^\[\]]*\][^{}]*)?\}", re.DOTALL
 def _detect_backend() -> str:
     """사용 가능한 AI 백엔드 자동 감지. 환경변수 ANALYZER_BACKEND으로 강제 지정 가능."""
     forced = os.environ.get("ANALYZER_BACKEND", "").lower()
-    if forced in ("claude", "openai"):
+    if forced in ("claude", "codex", "openai"):
         return forced
 
     # Claude CLI 우선
@@ -32,14 +33,26 @@ def _detect_backend() -> str:
     except Exception:
         pass
 
-    # OpenAI API key 확인
+    # Codex CLI
+    try:
+        r = subprocess.run(
+            ["codex", "--version"],
+            capture_output=True, text=True, timeout=10, shell=True,
+        )
+        if r.returncode == 0:
+            return "codex"
+    except Exception:
+        pass
+
+    # OpenAI API key (유료 fallback)
     if os.environ.get("OPENAI_API_KEY"):
         return "openai"
 
     raise RuntimeError(
-        "AI 백엔드를 찾을 수 없습니다.\n"
-        "- Claude Code CLI 설치: https://docs.anthropic.com/en/docs/claude-code\n"
-        "- 또는 OPENAI_API_KEY 환경변수 설정"
+        "AI 백엔드를 찾을 수 없습니다. 아래 중 하나를 설치하세요:\n"
+        "- Claude Code CLI (무료, Pro/Max 구독): https://docs.anthropic.com/en/docs/claude-code\n"
+        "- Codex CLI (무료, ChatGPT Plus/Pro 구독): npm install -g @openai/codex\n"
+        "- OpenAI API (유료): .env에 OPENAI_API_KEY 설정"
     )
 
 
@@ -99,6 +112,36 @@ def _call_claude(prompt: str) -> str | None:
     return None
 
 
+def _call_codex(prompt: str) -> str | None:
+    try:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False, encoding="utf-8") as f:
+            out_path = f.name
+
+        result = subprocess.run(
+            ["codex", "exec", "-o", out_path, prompt],
+            capture_output=True,
+            text=True,
+            timeout=120,
+            shell=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+        if result.returncode == 0:
+            with open(out_path, "r", encoding="utf-8") as f:
+                return f.read()
+        logger.warning("codex exec 실패: %s", result.stderr[:200])
+    except subprocess.TimeoutExpired:
+        logger.warning("codex exec 타임아웃")
+    except Exception as e:
+        logger.warning("codex exec 에러: %s", e)
+    finally:
+        try:
+            os.unlink(out_path)
+        except Exception:
+            pass
+    return None
+
+
 def _call_openai(prompt: str) -> str | None:
     try:
         from openai import OpenAI
@@ -121,6 +164,12 @@ def _call_openai(prompt: str) -> str | None:
         return None
 
 
+_CALL_FNS = {
+    "claude": _call_claude,
+    "codex": _call_codex,
+    "openai": _call_openai,
+}
+
 _backend = None
 
 
@@ -135,7 +184,7 @@ def _get_backend():
 def analyze_content(content: str, existing_categories: list[str] | None = None) -> AnalysisResult | None:
     prompt = build_prompt(content, existing_categories)
     backend = _get_backend()
-    call_fn = _call_claude if backend == "claude" else _call_openai
+    call_fn = _CALL_FNS[backend]
 
     for attempt in range(2):
         response = call_fn(prompt)
