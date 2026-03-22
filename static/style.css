@@ -1,0 +1,137 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: #0a0a0a;
+    color: #e0e0e0;
+    line-height: 1.6;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #222;
+}
+
+h1 { font-size: 1.4rem; color: #fff; }
+
+.search-bar { display: flex; gap: 8px; }
+
+.search-bar input {
+    background: #1a1a1a;
+    border: 1px solid #333;
+    color: #e0e0e0;
+    padding: 8px 12px;
+    border-radius: 6px;
+    width: 240px;
+}
+
+.search-bar button {
+    background: #2563eb;
+    color: #fff;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.layout {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 24px;
+}
+
+.sidebar h3 {
+    font-size: 0.85rem;
+    color: #888;
+    margin-bottom: 12px;
+    text-transform: uppercase;
+}
+
+.sidebar ul { list-style: none; }
+
+.sidebar li a {
+    display: block;
+    padding: 6px 10px;
+    color: #aaa;
+    text-decoration: none;
+    border-radius: 4px;
+    font-size: 0.9rem;
+}
+
+.sidebar li a:hover, .sidebar li a.active {
+    background: #1a1a1a;
+    color: #fff;
+}
+
+.count {
+    font-size: 0.85rem;
+    color: #666;
+    margin-bottom: 16px;
+}
+
+.card {
+    background: #141414;
+    border: 1px solid #222;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 12px;
+}
+
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.card-title {
+    color: #60a5fa;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.card-title:hover { text-decoration: underline; }
+
+.badge {
+    background: #1e3a5f;
+    color: #93c5fd;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+}
+
+.card-summary {
+    color: #bbb;
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+}
+
+.card-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.tags { display: flex; gap: 6px; flex-wrap: wrap; }
+
+.tag {
+    color: #888;
+    text-decoration: none;
+    font-size: 0.8rem;
+}
+
+.tag:hover { color: #60a5fa; }
+
+.date { color: #555; font-size: 0.8rem; }
+
+.empty { color: #666; text-align: center; padding: 40px; }

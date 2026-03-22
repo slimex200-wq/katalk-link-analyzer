@@ -102,6 +102,13 @@ class Database:
         rows = self.conn.execute("SELECT * FROM categories ORDER BY is_default DESC, name").fetchall()
         return [dict(r) for r in rows]
 
+    def get_used_categories(self):
+        """링크가 실제로 존재하는 카테고리만 반환"""
+        rows = self.conn.execute(
+            "SELECT DISTINCT category FROM links WHERE category IS NOT NULL ORDER BY category"
+        ).fetchall()
+        return [{"name": r["category"]} for r in rows]
+
     def ensure_category(self, name):
         self.conn.execute("INSERT OR IGNORE INTO categories (name, is_default) VALUES (?, 0)", (name,))
         self.conn.commit()

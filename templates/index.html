@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>카톡 링크 분석기</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>카톡 링크 분석기</h1>
+            <form class="search-bar" method="get" action="/">
+                <input type="text" name="q" value="{{ search_query }}" placeholder="검색어 입력...">
+                <button type="submit">검색</button>
+            </form>
+        </header>
+
+        <div class="layout">
+            <aside class="sidebar">
+                <h3>카테고리</h3>
+                <ul id="category-list">
+                    <li><a href="/" class="{{ 'active' if not current_category else '' }}">전체</a></li>
+                </ul>
+            </aside>
+
+            <main class="content">
+                {% if links %}
+                <p class="count">{{ links|length }}개 링크</p>
+                {% for link in links %}
+                <div class="card">
+                    <div class="card-header">
+                        <a href="{{ link.url }}" target="_blank" class="card-title">
+                            {{ link.title or link.url }}
+                        </a>
+                        {% if link.category %}
+                        <span class="badge">{{ link.category }}</span>
+                        {% endif %}
+                    </div>
+                    {% if link.summary %}
+                    <p class="card-summary">{{ link.summary }}</p>
+                    {% endif %}
+                    <div class="card-footer">
+                        <div class="tags">
+                            {% for tag in link.tags %}
+                            <a href="/?q={{ tag }}" class="tag">#{{ tag }}</a>
+                            {% endfor %}
+                        </div>
+                        {% if link.source_date %}
+                        <span class="date">{{ link.source_date }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+                {% else %}
+                <p class="empty">저장된 링크가 없습니다.</p>
+                {% endif %}
+            </main>
+        </div>
+    </div>
+    <script>
+        (function() {
+            var currentParams = new URLSearchParams(window.location.search);
+            var currentCat = currentParams.get('category') || '';
+            fetch('/api/categories')
+                .then(function(r) { return r.json(); })
+                .then(function(cats) {
+                    var list = document.getElementById('category-list');
+                    cats.forEach(function(cat) {
+                        var li = document.createElement('li');
+                        var a = document.createElement('a');
+                        a.href = '/?category=' + encodeURIComponent(cat.name);
+                        a.textContent = cat.name;
+                        if (cat.name === currentCat) a.className = 'active';
+                        li.appendChild(a);
+                        list.appendChild(li);
+                    });
+                });
+        })();
+    </script>
+</body>
+</html>
