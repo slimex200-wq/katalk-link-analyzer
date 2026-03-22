@@ -98,7 +98,13 @@ python main.py list --search AI
 | 변수 | 설명 | 기본값 |
 |------|------|--------|
 | `ANALYZER_BACKEND` | AI 백엔드 강제 지정 (`claude` / `codex` / `openai`) | 자동 감지 |
-| `OPENAI_API_KEY` | OpenAI API 키 (API 사용 시에만) | - |
+
+> Claude Code CLI 또는 Codex CLI 사용 시 환경변수 설정이 필요 없습니다.
+> 아래 변수는 OpenAI API (유료 fallback) 사용 시에만 설정하세요.
+
+| 변수 | 설명 | 기본값 |
+|------|------|--------|
+| `OPENAI_API_KEY` | OpenAI API 키 | - |
 | `OPENAI_MODEL` | OpenAI 모델 | `gpt-4o-mini` |
 
 ## 기술 스택
