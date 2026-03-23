@@ -2,6 +2,8 @@ import json
 import sqlite3
 from datetime import datetime, timezone
 
+from url_normalize import normalize_url
+
 DEFAULT_CATEGORIES = ["기술", "뉴스", "쇼핑", "참고자료", "엔터테인먼트"]
 
 
@@ -45,16 +47,29 @@ class Database:
         if "pinned" not in columns:
             self.conn.execute("ALTER TABLE links ADD COLUMN pinned INTEGER DEFAULT 0")
             self.conn.commit()
+        if "normalized_url" not in columns:
+            self.conn.execute("ALTER TABLE links ADD COLUMN normalized_url TEXT")
+            # 기존 데이터 정규화 백필
+            rows = self.conn.execute("SELECT id, url FROM links WHERE normalized_url IS NULL").fetchall()
+            for row in rows:
+                self.conn.execute(
+                    "UPDATE links SET normalized_url = ? WHERE id = ?",
+                    (normalize_url(row[1]), row[0]),
+                )
+            self.conn.commit()
 
     def execute(self, sql, params=()):
         return self.conn.execute(sql, params)
 
     def insert_link(self, url, title=None, summary=None, category=None, tags=None, source_date=None, raw_content=None):
+        norm = normalize_url(url)
+        if self.normalized_url_exists(norm):
+            return False
         try:
             self.conn.execute(
-                """INSERT INTO links (url, title, summary, category, tags, source_date, created_at, raw_content)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-                (url, title, summary, category, json.dumps(tags or [], ensure_ascii=False),
+                """INSERT INTO links (url, normalized_url, title, summary, category, tags, source_date, created_at, raw_content)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (url, norm, title, summary, category, json.dumps(tags or [], ensure_ascii=False),
                  source_date, datetime.now(timezone.utc).isoformat(), raw_content),
             )
             if category:
@@ -152,7 +167,14 @@ class Database:
         return cursor.rowcount > 0
 
     def url_exists(self, url):
-        return self.conn.execute("SELECT 1 FROM links WHERE url = ?", (url,)).fetchone() is not None
+        """정규화된 URL 기준으로 중복 체크"""
+        norm = normalize_url(url)
+        return self.normalized_url_exists(norm)
+
+    def normalized_url_exists(self, normalized_url):
+        return self.conn.execute(
+            "SELECT 1 FROM links WHERE normalized_url = ?", (normalized_url,)
+        ).fetchone() is not None
 
     def close(self):
         self.conn.close()

@@ -1,6 +1,8 @@
 import re
 from urllib.parse import urlparse
 
+from url_normalize import normalize_url
+
 URL_PATTERN = re.compile(r'https?://[^\s<>"{}|\\^`\[\]]+')
 
 # PC 형식: "2026년 3월 22일 오후 4:27, 나 : ..."
@@ -17,7 +19,7 @@ def parse_katalk_export(text: str) -> list[dict]:
     if not text.strip():
         return []
 
-    seen_urls: set[str] = set()
+    seen_normalized: set[str] = set()
     results: list[dict] = []
     current_date = None
 
@@ -42,8 +44,11 @@ def parse_katalk_export(text: str) -> list[dict]:
         urls = URL_PATTERN.findall(line)
         for url in urls:
             url = url.rstrip(".,;:!?)")
-            if url not in seen_urls and _is_valid_url(url):
-                seen_urls.add(url)
+            if not _is_valid_url(url):
+                continue
+            norm = normalize_url(url)
+            if norm not in seen_normalized:
+                seen_normalized.add(norm)
                 results.append({
                     "url": url,
                     "date": current_date,

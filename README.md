@@ -118,6 +118,13 @@ python main.py list --search AI
 
 ## 업데이트
 
+### v3 (2026-03-24)
+- **URL 정규화 기반 중복 방지** — 같은 페이지의 변형 URL을 자동 감지
+  - 트래킹 파라미터 제거 (utm_*, fbclid, gclid, si 등 30+종)
+  - `www.` / `m.` 서브도메인 통일 (네이버, 유튜브, 티스토리 등)
+  - trailing slash, 대소문자, fragment 정규화
+- 기존 DB 자동 마이그레이션 (normalized_url 컬럼 백필)
+
 ### v2 (2026-03-22)
 - Codex CLI 지원 추가 (Claude / Codex / OpenAI 세 가지 백엔드)
 - 웹 UI 파일 업로드 + 드래그앤드롭 (CLI 없이 사용 가능)

@@ -78,3 +78,31 @@ def test_ensure_category_creates_new(test_db):
     cats = test_db.get_categories()
     names = [c["name"] for c in cats]
     assert "새카테고리" in names
+
+
+def test_duplicate_with_tracking_params_skipped(test_db):
+    """트래킹 파라미터만 다른 URL은 중복으로 처리"""
+    test_db.insert_link(url="https://example.com/article?id=1", title="First")
+    result = test_db.insert_link(url="https://example.com/article?id=1&utm_source=kakao", title="Second")
+    assert result is False
+
+
+def test_duplicate_www_vs_bare_skipped(test_db):
+    """www. 유무만 다른 URL은 중복으로 처리"""
+    test_db.insert_link(url="https://www.example.com/page", title="First")
+    result = test_db.insert_link(url="https://example.com/page", title="Second")
+    assert result is False
+
+
+def test_duplicate_mobile_vs_desktop_skipped(test_db):
+    """m. vs bare domain은 중복으로 처리"""
+    test_db.insert_link(url="https://m.naver.com/news/123", title="Mobile")
+    result = test_db.insert_link(url="https://naver.com/news/123", title="Desktop")
+    assert result is False
+
+
+def test_url_exists_checks_normalized(test_db):
+    """url_exists는 정규화 기준으로 체크"""
+    test_db.insert_link(url="https://example.com/page?utm_source=tw", title="Test")
+    assert test_db.url_exists("https://example.com/page") is True
+    assert test_db.url_exists("https://www.example.com/page") is True

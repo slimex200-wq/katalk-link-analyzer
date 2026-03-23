@@ -66,3 +66,19 @@ def test_parse_mobile_format():
 def test_empty_input():
     results = parse_katalk_export("")
     assert len(results) == 0
+
+
+def test_deduplicate_with_tracking_params():
+    """트래킹 파라미터만 다른 URL은 1개만 추출"""
+    text = """2026년 3월 22일 오후 4:27, 나 : https://example.com/article
+2026년 3월 22일 오후 4:30, 나 : https://example.com/article?utm_source=kakao"""
+    results = parse_katalk_export(text)
+    assert len(results) == 1
+
+
+def test_deduplicate_www_vs_bare():
+    """www 유무만 다른 URL은 1개만 추출"""
+    text = """2026년 3월 22일 오후 4:27, 나 : https://www.example.com/page
+2026년 3월 22일 오후 4:30, 나 : https://example.com/page"""
+    results = parse_katalk_export(text)
+    assert len(results) == 1
