@@ -20,6 +20,12 @@ class Database:
                 name TEXT UNIQUE NOT NULL,
                 is_default BOOLEAN DEFAULT 0
             );
+            CREATE TABLE IF NOT EXISTS deleted_urls (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                normalized_url TEXT UNIQUE NOT NULL,
+                original_url TEXT,
+                deleted_at TEXT
+            );
             CREATE TABLE IF NOT EXISTS links (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 url TEXT UNIQUE NOT NULL,
@@ -63,7 +69,7 @@ class Database:
 
     def insert_link(self, url, title=None, summary=None, category=None, tags=None, source_date=None, raw_content=None):
         norm = normalize_url(url)
-        if self.normalized_url_exists(norm):
+        if self.normalized_url_exists(norm) or self.is_deleted_url(norm):
             return False
         try:
             self.conn.execute(
@@ -162,18 +168,31 @@ class Database:
         self.conn.commit()
 
     def delete_link(self, link_id: int) -> bool:
-        cursor = self.conn.execute("DELETE FROM links WHERE id = ?", (link_id,))
+        row = self.conn.execute("SELECT url, normalized_url FROM links WHERE id = ?", (link_id,)).fetchone()
+        if not row:
+            return False
+        norm = row["normalized_url"] or normalize_url(row["url"])
+        self.conn.execute(
+            "INSERT OR IGNORE INTO deleted_urls (normalized_url, original_url, deleted_at) VALUES (?, ?, ?)",
+            (norm, row["url"], datetime.now(timezone.utc).isoformat()),
+        )
+        self.conn.execute("DELETE FROM links WHERE id = ?", (link_id,))
         self.conn.commit()
-        return cursor.rowcount > 0
+        return True
 
     def url_exists(self, url):
-        """정규화된 URL 기준으로 중복 체크"""
+        """정규화된 URL 기준으로 중복 체크 (삭제된 URL 포함)"""
         norm = normalize_url(url)
-        return self.normalized_url_exists(norm)
+        return self.normalized_url_exists(norm) or self.is_deleted_url(norm)
 
     def normalized_url_exists(self, normalized_url):
         return self.conn.execute(
             "SELECT 1 FROM links WHERE normalized_url = ?", (normalized_url,)
+        ).fetchone() is not None
+
+    def is_deleted_url(self, normalized_url):
+        return self.conn.execute(
+            "SELECT 1 FROM deleted_urls WHERE normalized_url = ?", (normalized_url,)
         ).fetchone() is not None
 
     def close(self):

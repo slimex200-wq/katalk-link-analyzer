@@ -106,3 +106,32 @@ def test_url_exists_checks_normalized(test_db):
     test_db.insert_link(url="https://example.com/page?utm_source=tw", title="Test")
     assert test_db.url_exists("https://example.com/page") is True
     assert test_db.url_exists("https://www.example.com/page") is True
+
+
+def test_deleted_link_not_reimported(test_db):
+    """삭제한 링크는 재임포트 시 자동 제외"""
+    test_db.insert_link(url="https://example.com/deleted", title="삭제될 링크")
+    link = test_db.get_link_by_url("https://example.com/deleted")
+    test_db.delete_link(link["id"])
+    # 삭제 후 재삽입 시도 — 차단되어야 함
+    result = test_db.insert_link(url="https://example.com/deleted", title="다시 들어옴")
+    assert result is False
+    assert test_db.get_link_by_url("https://example.com/deleted") is None
+
+
+def test_deleted_link_blocks_normalized_variant(test_db):
+    """삭제한 URL의 정규화 변형도 차단"""
+    test_db.insert_link(url="https://example.com/page", title="원본")
+    link = test_db.get_link_by_url("https://example.com/page")
+    test_db.delete_link(link["id"])
+    # 트래킹 파라미터 붙은 변형 URL도 차단
+    result = test_db.insert_link(url="https://example.com/page?utm_source=kakao", title="변형")
+    assert result is False
+
+
+def test_url_exists_includes_deleted(test_db):
+    """url_exists는 삭제된 URL도 True 반환"""
+    test_db.insert_link(url="https://example.com/gone", title="곧 삭제")
+    link = test_db.get_link_by_url("https://example.com/gone")
+    test_db.delete_link(link["id"])
+    assert test_db.url_exists("https://example.com/gone") is True
