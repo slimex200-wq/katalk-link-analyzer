@@ -219,6 +219,24 @@
             });
         }
 
+        // 페이지 로드 시 분석 진행 중이면 자동으로 진행률 바 표시
+        (function() {
+            fetch('/api/upload/status')
+                .then(function(r) { return r.json(); })
+                .then(function(s) {
+                    if (s.running) {
+                        var bar = document.getElementById('upload-bar');
+                        var fill = document.getElementById('upload-fill');
+                        var msg = document.getElementById('upload-msg');
+                        bar.style.display = 'flex';
+                        var pct = s.total > 0 ? Math.round(s.done / s.total * 100) : 0;
+                        fill.style.width = pct + '%';
+                        msg.textContent = s.message;
+                        pollStatus();
+                    }
+                });
+        })();
+
         (function() {
             var currentParams = new URLSearchParams(window.location.search);
             var currentCat = currentParams.get('category') || '';
